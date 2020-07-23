@@ -22,6 +22,8 @@ import pandas as pd
 import fsps
 import sedpy
 import lineid_plot
+import torch
+import torch.nn as nn 
 
 from sedpy.observate import getSED, vac2air, air2vac
 
@@ -131,7 +133,7 @@ def loss_function(args):
     
     tau_mean, const_mean, tage_mean, fburst_mean, tburst_mean, logzsol_mean, gas_logz_mean, gas_logu_mean = args
     
-    set_size = 5000
+    set_size = 3000
 
     tau_arr = [float(priors.ClippedNormal(mean=tau_mean, sigma=0.3, mini=1.0, maxi=8.0).sample()) for _ in range(set_size)]
     const_arr =  [float(priors.ClippedNormal(mean=const_mean, sigma=0.1, mini=0.0, maxi=0.5).sample()) for _ in range(set_size)]
