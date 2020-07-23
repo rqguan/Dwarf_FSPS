@@ -88,14 +88,14 @@ SDSS_EMLINES = {    'OII_3726': {'cen':3726.032, 'low':3717.0, 'upp':3737.0},   
 
 from hyperopt import hp, fmin, rand, tpe, space_eval
 
-space = [hp.uniform('tau_mean', 1, 8),
-         hp.uniform('const_mean', 0, 0.49),
-         hp.uniform('tage_mean', 1, 11),
-         hp.uniform('fburst_mean', 0, 0.8),
-         hp.uniform('tburst_mean', 1, 8),
-         hp.uniform('logzsol_mean', -1.5, 0),
-         hp.uniform('gas_logz_mean', -1.5, 0),
-         hp.uniform('gas_logu_mean', -4, -1),
+space = [hp.choice('tau_mean', [1.6, 2.6, 3.6]),
+         hp.choice('const_mean', [0.2, 0.3, 0.4]),
+         hp.choice('tage_mean', [5.5, 6.5, 7.5]),
+         hp.choice('fburst_mean', [0.5, 0.6, 0.7]),
+         hp.choice('tburst_mean', [4.0, 5.0, 6.0]),
+         hp.choice('logzsol_mean', [-1, -0.8, -0.6]),
+         hp.choice('gas_logz_mean', [-0.7, -0.5, -0.3]),
+         hp.choice('gas_logu_mean', [-3.7, -3.2, -2.7]),
         ]
 
 
@@ -115,8 +115,13 @@ def loss(sps_set, sdss_set, bins_range):
     zip_object = zip(sps_hist_norm, sdss_hist_norm)
     for list1_i, list2_i in zip_object:
         loss.append(abs(list1_i-list2_i))
+        
+    loss_products = []
 
-    net_lost = sum(loss)
+    for num1, num2 in zip(sdss_hist_norm, loss):
+        loss_products.append(num1 * num2)
+
+    net_lost = sum(loss_products)
     
     return net_lost
     
@@ -136,7 +141,7 @@ def loss_function(args):
     tau_arr = [float(priors.ClippedNormal(mean=tau_mean, sigma=0.3, mini=1.0, maxi=8.0).sample()) for _ in range(set_size)]
     const_arr =  [float(priors.ClippedNormal(mean=const_mean, sigma=0.1, mini=0.0, maxi=0.5).sample()) for _ in range(set_size)]
     tage_arr =  [float(priors.ClippedNormal(mean=tage_mean, sigma=0.3, mini=1.0, maxi=11.0).sample()) for _ in range(set_size)]
-    fburst_arr =  [float(priors.ClippedNormal(mean=fburst_mean, sigma=0.1, mini=0.0, maxi=0.8).sample()) for _ in range(set_size)]
+    fburst_arr =  [float(priors.ClippedNormal(mean=fburst_mean, sigma=0.1, mini=0.0, maxi=1.0).sample()) for _ in range(set_size)]
     tburst_arr =  [float(priors.ClippedNormal(mean=tburst_mean, sigma=0.5, mini=0.0, maxi=8.0).sample()) for _ in range(set_size)]
     logzsol_arr =  [float(priors.ClippedNormal(mean=logzsol_mean, sigma=0.5, mini=-1.5, maxi=0.0).sample()) for _ in range(set_size)]
     gas_logz_arr =  [float(priors.ClippedNormal(mean=gas_logz_mean, sigma=0.5, mini=-1.5, maxi=0.0).sample()) for _ in range(set_size)]
@@ -196,7 +201,7 @@ def loss_function(args):
     # wavelength window for measuring EW.
     # - You can save the results in a numpy array
     dwarf_sample_table = measure_color_ew(
-        dwarf_sample_gaussian, em_list=SDSS_EMLINES, output='dwarf_sample_gaussian_test.npy')
+        dwarf_sample_gaussian, em_list=SDSS_EMLINES, output=None)
 
     bin_size = 50
 
@@ -219,7 +224,7 @@ def loss_function(args):
 # In[6]:
 
 
-best = fmin(loss_function, space, algo=tpe.suggest, max_evals = 10)
+best = fmin(loss_function, space, algo=tpe.suggest, max_evals = 15)
 
 print(space_eval(space, best))
 
