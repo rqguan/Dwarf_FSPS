@@ -149,7 +149,7 @@ def loss_function(args):
                                              mini=0.0, maxi=0.5).sample()) for _ in range(set_size)]
     tage_arr =  [float(priors.ClippedNormal(mean=tage_mean, sigma=tage_sig, 
                                             mini=1.0, maxi=11.0).sample()) for _ in range(set_size)]
-    fburst_arr =  [float(priors.ClippedNormal(mean=fburst_mean, sigma=fbust_sig, 
+    fburst_arr =  [float(priors.ClippedNormal(mean=fburst_mean, sigma=fburst_sig, 
                                               mini=0.0, maxi=0.8).sample()) for _ in range(set_size)]
     tburst_arr =  [float(priors.ClippedNormal(mean=tburst_mean, sigma=tburst_sig, 
                                               mini=0.0, maxi=8.0).sample()) for _ in range(set_size)]
