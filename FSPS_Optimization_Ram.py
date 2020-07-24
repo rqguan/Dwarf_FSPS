@@ -4,9 +4,9 @@
 # In[1]:
 
 
-get_ipython().run_line_magic('matplotlib', 'inline')
-get_ipython().run_line_magic('load_ext', 'autoreload')
-get_ipython().run_line_magic('autoreload', '2')
+#get_ipython().run_line_magic('matplotlib', 'inline')
+#get_ipython().run_line_magic('load_ext', 'autoreload')
+#get_ipython().run_line_magic('autoreload', '2')
 # Cell magic method always stays at the top of the cell
 
 # Imports from the Python standard library should be at the top
@@ -130,7 +130,7 @@ def loss_function(args):
     
     tau_mean, const_mean, tage_mean, fburst_mean, tburst_mean, logzsol_mean, gas_logz_mean, gas_logu_mean = args
     
-    set_size = 5000
+    set_size = 3000
 
     tau_arr = [float(priors.ClippedNormal(mean=tau_mean, sigma=0.3, mini=1.0, maxi=8.0).sample()) for _ in range(set_size)]
     const_arr =  [float(priors.ClippedNormal(mean=const_mean, sigma=0.1, mini=0.0, maxi=0.5).sample()) for _ in range(set_size)]
