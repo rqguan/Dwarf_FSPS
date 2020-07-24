@@ -785,7 +785,6 @@ def plot_models_with_sdss(models, sdss_data, wave_min=3720, wave_max=7225,
 
     return fig
 
-
 def _sigmoid(x):
     return 1. / (1. + np.exp(-x))
 

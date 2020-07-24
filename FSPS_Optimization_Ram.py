@@ -99,7 +99,16 @@ space = [hp.uniform('tau_mean', 1, 8),
          hp.uniform('logzsol_mean', -1.5, 0),
          hp.uniform('gas_logz_mean', -1.5, 0),
          hp.uniform('gas_logu_mean', -4, -1),
+         hp.uniform('tau_sig', 0, 0.3),
+         hp.uniform('const_sig', 0, 0.3),
+         hp.uniform('tage_sig', 0, 3),
+         hp.uniform('fburst_sig', 0, 0.3),
+         hp.uniform('tburst_sig', 0, 0.5),
+         hp.uniform('logzsol_sig', 0, 0.5),
+         hp.uniform('gas_logz_sig', 0, 0.5),
+         hp.uniform('gas_logu_sig', 0, 0.5),
         ]
+
 
 
 # In[4]:
@@ -132,14 +141,22 @@ def loss_function(args):
     
     set_size = 3000
 
-    tau_arr = [float(priors.ClippedNormal(mean=tau_mean, sigma=0.3, mini=1.0, maxi=8.0).sample()) for _ in range(set_size)]
-    const_arr =  [float(priors.ClippedNormal(mean=const_mean, sigma=0.1, mini=0.0, maxi=0.5).sample()) for _ in range(set_size)]
-    tage_arr =  [float(priors.ClippedNormal(mean=tage_mean, sigma=0.3, mini=1.0, maxi=11.0).sample()) for _ in range(set_size)]
-    fburst_arr =  [float(priors.ClippedNormal(mean=fburst_mean, sigma=0.1, mini=0.0, maxi=0.8).sample()) for _ in range(set_size)]
-    tburst_arr =  [float(priors.ClippedNormal(mean=tburst_mean, sigma=0.5, mini=0.0, maxi=8.0).sample()) for _ in range(set_size)]
-    logzsol_arr =  [float(priors.ClippedNormal(mean=logzsol_mean, sigma=0.5, mini=-1.5, maxi=0.0).sample()) for _ in range(set_size)]
-    gas_logz_arr =  [float(priors.ClippedNormal(mean=gas_logz_mean, sigma=0.5, mini=-1.5, maxi=0.0).sample()) for _ in range(set_size)]
-    gas_logu_arr =  [float(priors.ClippedNormal(mean=gas_logu_mean, sigma=0.5, mini=-4.0, maxi=-1.0).sample()) for _ in range(set_size)]
+    tau_arr = [float(priors.ClippedNormal(mean=tau_mean, sigma=tau_sig, 
+                                          mini=1.0, maxi=8.0).sample()) for _ in range(set_size)]
+    const_arr =  [float(priors.ClippedNormal(mean=const_mean, sigma=const_sig, 
+                                             mini=0.0, maxi=0.5).sample()) for _ in range(set_size)]
+    tage_arr =  [float(priors.ClippedNormal(mean=tage_mean, sigma=tage_sig, 
+                                            mini=1.0, maxi=11.0).sample()) for _ in range(set_size)]
+    fburst_arr =  [float(priors.ClippedNormal(mean=fburst_mean, sigma=fbust_sig, 
+                                              mini=0.0, maxi=0.8).sample()) for _ in range(set_size)]
+    tburst_arr =  [float(priors.ClippedNormal(mean=tburst_mean, sigma=tburst_sig, 
+                                              mini=0.0, maxi=8.0).sample()) for _ in range(set_size)]
+    logzsol_arr =  [float(priors.ClippedNormal(mean=logzsol_mean, sigma=logzsol_sig, 
+                                               mini=-1.5, maxi=0.0).sample()) for _ in range(set_size)]
+    gas_logz_arr =  [float(priors.ClippedNormal(mean=gas_logz_mean, sigma=gas_logz_sig, 
+                                                mini=-1.5, maxi=0.0).sample()) for _ in range(set_size)]
+    gas_logu_arr =  [float(priors.ClippedNormal(mean=gas_logu_mean, sigma=gas_logu_sig, 
+                                                mini=-4.0, maxi=-1.0).sample()) for _ in range(set_size)]
 
     # Fix the fburst + const > 1 issue
     for ii in np.arange(len(const_arr)):

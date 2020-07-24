@@ -22,8 +22,6 @@ import pandas as pd
 import fsps
 import sedpy
 import lineid_plot
-import torch
-import torch.nn as nn 
 
 from sedpy.observate import getSED, vac2air, air2vac
 
@@ -48,10 +46,13 @@ from prospect.models import priors
 
 from scipy.stats import entropy
 
+import torch
+import torch.nn as nn
+
 # re-defining plotting defaults
 from matplotlib import rcParams
 
-from dwarf_models import SDSS_EMLINES, simulate_dwarf_sed, test_single_model,    sigma_clipping_continuum, measure_ew_emission_line, design_model_grid,    generate_dwarf_population, measure_color_ew, plot_models_with_sdss, setup_fsps_spop
+from dwarf_models import SDSS_EMLINES, simulate_dwarf_sed, test_single_model, sigma_clipping_continuum, measure_ew_emission_line, design_model_grid,    generate_dwarf_population, measure_color_ew, plot_models_with_sdss, setup_fsps_spop
 
 rcParams.update({'xtick.major.pad': '7.0'})
 rcParams.update({'xtick.major.size': '7.5'})
@@ -100,7 +101,7 @@ space = [hp.choice('tau_mean', [1.6, 2.6, 3.6, 4.6, 5.6]),
          hp.choice('gas_logu_mean', [-3.7, -3.2, -2.7, -2.2, -1.2]),
          hp.choice('tau_sig', [0.1, 0.2, 0.3, 0.4, 0.5]),
          hp.choice('const_sig', [0.1, 0.2, 0.3]),
-         hp.choice('tage_sig', [0.1, 0.3, 0.]),
+         hp.choice('tage_sig', [0.1, 0.3, 0.5]),
          hp.choice('fburst_sig', [0.1, 0.2, 0.3]),
          hp.choice('tburst_sig', [0.1, 0.2, 0.3, 0.4, 0.5]),
          hp.choice('logzsol_sig', [0.1, 0.2, 0.3, 0.4, 0.5]),
@@ -128,20 +129,16 @@ def loss(true_set, predict_set, bins_range):
     
     return loss.item()
 
-    
-    
 
-
-# In[ ]:
+# In[9]:
 
 
 def loss_function(args):
 
     
-    tau_mean, const_mean, tage_mean, fburst_mean, tburst_mean, logzsol_mean, gas_logz_mean, gas_logu_mean,\
-        tau_sig, const_sig, tage_sig, fburst_sig, tburst_sig, logzsol_sig, gas_logz_sig, gas_logu_sig = args
+    tau_mean, const_mean, tage_mean, fburst_mean, tburst_mean, logzsol_mean, gas_logz_mean, gas_logu_mean,    tau_sig, const_sig, tage_sig, fburst_sig, tburst_sig, logzsol_sig, gas_logz_sig, gas_logu_sig= args
     
-    set_size = 3000
+    set_size = 5000
 
     tau_arr = [float(priors.ClippedNormal(mean=tau_mean, sigma=tau_sig, 
                                           mini=1.0, maxi=8.0).sample()) for _ in range(set_size)]
@@ -159,7 +156,7 @@ def loss_function(args):
                                                 mini=-1.5, maxi=0.0).sample()) for _ in range(set_size)]
     gas_logu_arr =  [float(priors.ClippedNormal(mean=gas_logu_mean, sigma=gas_logu_sig, 
                                                 mini=-4.0, maxi=-1.0).sample()) for _ in range(set_size)]
-                 
+
     # Fix the fburst + const > 1 issue
     for ii in np.arange(len(const_arr)):
         if const_arr[ii] + fburst_arr[ii] >= 0.95:
@@ -206,7 +203,7 @@ def loss_function(args):
     sdss_bands = fsps.find_filter('SDSS')
     
     dwarf_sample_gaussian = generate_dwarf_population(
-        spop_tau, dwarf_sample_parameters, filters=sdss_bands, n_jobs=6)
+        spop_tau, dwarf_sample_parameters, filters=sdss_bands, n_jobs=4)
 
 
     # Measure colors and emission line EWs
@@ -231,10 +228,12 @@ def loss_function(args):
 
     total_loss = (ur_loss + ug_loss + gr_loss + gi_loss + OIII_loss + Ha_loss + Hb_loss)/7
 
+    part_loss = [ur_loss, ug_loss, gr_loss, gi_loss, OIII_loss, Ha_loss, Hb_loss]
+
     return total_loss
 
 
-# In[6]:
+# In[ ]:
 
 
 best = fmin(loss_function, space, algo=tpe.suggest, max_evals = 100)
@@ -242,7 +241,7 @@ best = fmin(loss_function, space, algo=tpe.suggest, max_evals = 100)
 print(space_eval(space, best))
 
 
-# In[7]:
+# In[ ]:
 
 
 
