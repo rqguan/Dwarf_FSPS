@@ -52,7 +52,7 @@ import torch.nn as nn
 # re-defining plotting defaults
 from matplotlib import rcParams
 
-from dwarf_models import SDSS_EMLINES, simulate_dwarf_sed, test_single_model, sigma_clipping_continuum, measure_ew_emission_line, design_model_grid,    generate_dwarf_population, measure_color_ew, plot_models_with_sdss, setup_fsps_spop
+from dwarf_models import SDSS_EMLINES, simulate_dwarf_sed, test_single_model,    sigma_clipping_continuum, measure_ew_emission_line, design_model_grid,    generate_dwarf_population, measure_color_ew, plot_models_with_sdss, setup_fsps_spop
 
 rcParams.update({'xtick.major.pad': '7.0'})
 rcParams.update({'xtick.major.size': '7.5'})
@@ -91,23 +91,14 @@ SDSS_EMLINES = {    'OII_3726': {'cen':3726.032, 'low':3717.0, 'upp':3737.0},   
 
 from hyperopt import hp, fmin, rand, tpe, space_eval
 
-space = [hp.choice('tau_mean', [1.6, 2.6, 3.6, 4.6, 5.6]),
-         hp.choice('const_mean', [0.1, 0.2, 0.3, 0.4, 0.5]),
-         hp.choice('tage_mean', [2.5, 4.5, 6.5, 8.5, 10.5]),
-         hp.choice('fburst_mean', [0.4, 0.5, 0.6, 0.7, 0.8]),
-         hp.choice('tburst_mean', [3.0, 4.0, 5.0, 6.0, 7.0]),
-         hp.choice('logzsol_mean', [-1.2, -1, -0.8, -0.6, -0.4]),
-         hp.choice('gas_logz_mean', [-0.9, -0.7, -0.5, -0.3, -0.1]),
-         hp.choice('gas_logu_mean', [-3.7, -3.2, -2.7, -2.2, -1.2]),
-         
-         hp.choice('tau_sig', [0.1, 0.2, 0.3, 0.4, 0.5]),
-         hp.choice('const_sig', [0.1, 0.2, 0.3]),
-         hp.choice('tage_sig', [0.1, 0.3, 0.5]),
-         hp.choice('fburst_sig', [0.1, 0.2, 0.3]),
-         hp.choice('tburst_sig', [0.1, 0.2, 0.3, 0.4, 0.5]),
-         hp.choice('logzsol_sig', [0.1, 0.2, 0.3, 0.4, 0.5]),
-         hp.choice('gas_logz_sig', [0.1, 0.2, 0.3, 0.4, 0.5]),
-         hp.choice('gas_logu_sig', [0.1, 0.2, 0.3, 0.4, 0.5]), 
+space = [hp.choice('tau_sig', [0.1, 0.2, 0.3, 0.4, 0.5]),
+         hp.choice('const_sig', [0.1, 0.2, 0.3,0.5]),
+         hp.choice('tage_sig', [0.1, 0.3, 0.3,0.5]),
+         hp.choice('fburst_sig', [0.1, 0.2, 0.3,0.5]),
+         hp.choice('tburst_sig', [0.1, 0.2, 0.3, 0.4, 0.5, 0.7]),
+         hp.choice('logzsol_sig', [0.1, 0.2, 0.3, 0.4, 0.5, 0.7]),
+         hp.choice('gas_logz_sig', [0.1, 0.2, 0.3, 0.4, 0.5, 0.7]),
+         hp.choice('gas_logu_sig', [0.1, 0.2, 0.3, 0.4, 0.5, 0.7]), 
         ]
 
 
@@ -137,25 +128,25 @@ def loss(true_set, predict_set, bins_range):
 def loss_function(args):
 
     
-    tau_mean, const_mean, tage_mean, fburst_mean, tburst_mean, logzsol_mean, gas_logz_mean, gas_logu_mean,    tau_sig, const_sig, tage_sig, fburst_sig, tburst_sig, logzsol_sig, gas_logz_sig, gas_logu_sig= args
+    tau_sig, const_sig, tage_sig, fburst_sig, tburst_sig, logzsol_sig, gas_logz_sig, gas_logu_sig= args
     
     set_size = 5000
 
-    tau_arr = [float(priors.ClippedNormal(mean=tau_mean, sigma=tau_sig, 
+    tau_arr = [float(priors.ClippedNormal(mean=2.6, sigma=tau_sig, 
                                           mini=1.0, maxi=8.0).sample()) for _ in range(set_size)]
-    const_arr =  [float(priors.ClippedNormal(mean=const_mean, sigma=const_sig, 
+    const_arr =  [float(priors.ClippedNormal(mean=0.3, sigma=const_sig, 
                                              mini=0.0, maxi=0.5).sample()) for _ in range(set_size)]
-    tage_arr =  [float(priors.ClippedNormal(mean=tage_mean, sigma=tage_sig, 
+    tage_arr =  [float(priors.ClippedNormal(mean=6.5, sigma=tage_sig, 
                                             mini=1.0, maxi=11.0).sample()) for _ in range(set_size)]
-    fburst_arr =  [float(priors.ClippedNormal(mean=fburst_mean, sigma=fburst_sig, 
+    fburst_arr =  [float(priors.ClippedNormal(mean=0.6, sigma=fburst_sig, 
                                               mini=0.0, maxi=0.8).sample()) for _ in range(set_size)]
-    tburst_arr =  [float(priors.ClippedNormal(mean=tburst_mean, sigma=tburst_sig, 
+    tburst_arr =  [float(priors.ClippedNormal(mean=5.0, sigma=tburst_sig, 
                                               mini=0.0, maxi=8.0).sample()) for _ in range(set_size)]
-    logzsol_arr =  [float(priors.ClippedNormal(mean=logzsol_mean, sigma=logzsol_sig, 
+    logzsol_arr =  [float(priors.ClippedNormal(mean=-0.8, sigma=logzsol_sig, 
                                                mini=-1.5, maxi=0.0).sample()) for _ in range(set_size)]
-    gas_logz_arr =  [float(priors.ClippedNormal(mean=gas_logz_mean, sigma=gas_logz_sig, 
+    gas_logz_arr =  [float(priors.ClippedNormal(mean=-0.5, sigma=gas_logz_sig, 
                                                 mini=-1.5, maxi=0.0).sample()) for _ in range(set_size)]
-    gas_logu_arr =  [float(priors.ClippedNormal(mean=gas_logu_mean, sigma=gas_logu_sig, 
+    gas_logu_arr =  [float(priors.ClippedNormal(mean=-3.2, sigma=gas_logu_sig, 
                                                 mini=-4.0, maxi=-1.0).sample()) for _ in range(set_size)]
 
     # Fix the fburst + const > 1 issue
