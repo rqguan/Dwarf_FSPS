@@ -25,6 +25,9 @@ import astropy.units as u
 from astropy.table import Table, Column
 from astropy.io import fits
 
+import torch 
+import torch.nn as nn
+
 from specutils import Spectrum1D
 from specutils import SpectralRegion
 from specutils.analysis import equivalent_width
@@ -33,6 +36,7 @@ from specutils.analysis import equivalent_width
 import matplotlib.pyplot as plt
 from matplotlib import rc
 from matplotlib import rcParams
+import corner
 
 plt.rc('text', usetex=True)
 rcParams.update({'xtick.major.pad': '7.0'})
@@ -49,6 +53,10 @@ rcParams.update({'ytick.minor.size': '3.5'})
 rcParams.update({'ytick.minor.width': '1.0'})
 rcParams.update({'axes.titlepad': '15.0'})
 rcParams.update({'font.size': 26})
+
+ORG = plt.get_cmap('OrRd')
+ORG_2 = plt.get_cmap('YlOrRd')
+BLU = plt.get_cmap('PuBu')
 
 
 __all__ = ['get_sdss_spectrum', 'normalize_spectrum_window',
@@ -817,3 +825,97 @@ def filters_to_sedpy_format(name, wave, response):
     for w, r in zip(wave, response):
         par.write("KFILTER %9.3f %10.6f\n" % (w, r))
     par.close()
+
+
+def corner_plot(models, sdss_data):
+
+    sdss_ug = np.array(sdss_data['M_u'] - sdss_data['M_g'])
+    sdss_gr = np.array(sdss_data['M_g'] - sdss_data['M_r'])
+    sdss_ur = np.array(sdss_data['M_u'] - sdss_data['M_r'])
+    sdss_gi = np.array(sdss_data['M_g'] - sdss_data['M_i'])
+    sdss_HA = np.array(np.log10(-1.0 * (sdss_data['H_ALPHA_EQW'])))
+    sdss_HB = np.array(np.log10(-1.0 * (sdss_data['H_BETA_EQW'])))
+    sdss_OIII =  np.array(np.log10(-1.0 * (sdss_data['OIII_5007_EQW'])))
+
+    data = np.transpose(np.vstack([sdss_ug, sdss_gr, sdss_ur, sdss_gi, sdss_HA, sdss_HB, sdss_OIII]))
+
+    figure = corner.corner(data, labels=[r'$u-g\ [\mathrm{mag}]$',
+                                         r'$g-r\ [\mathrm{mag}]$',
+                                         r'$u-r\ [\mathrm{mag}]$', 
+                                         r'$g-i\ [\mathrm{mag}]$',
+                                         r'$\log\ \mathrm{EW(H}\alpha)\ \AA$',
+                                         r'$\log\ \mathrm{EW(H}\beta)\ \AA$',
+                                         r'$\log\ \mathrm{EW([OIII])}\ \AA$'],
+                           range = [(0,1.75),(-0.1,0.8),(0,2.5),(-0.2,1.2),(0,3),(-0.5,2.5),(-1,3)],
+                           bins=40, color=BLU(0.7),
+                           smooth=2, 
+                           label_kwargs={'fontsize': 16},
+                           quantiles=[0.16, 0.5, 0.84],
+                           levels=[0.16, 0.50, 0.84],
+                           plot_contours=True,
+                           fill_contours=True,
+                           show_titles=True,
+                           title_kwargs={"fontsize": 20},
+                           hist_kwargs={"histtype": 'stepfilled', "alpha": 0.5,
+                                         "edgecolor": "none"},
+                           use_math_text=True)
+
+
+
+    model_ug = np.array(models['ug_color'])
+    model_gr = np.array(models['gr_color'])
+    model_ur = np.array(models['ur_color'])
+    model_gi = np.array(models['gi_color'])
+    model_HA = np.array(np.log10(models['ew_halpha']))
+    model_HB = np.array(np.log10(models['ew_hbeta']))
+    model_OIII = np.array(np.log10(models['ew_oiii_5007']))
+
+
+    model_sample = np.transpose(np.vstack([model_ug, model_gr, model_ur, model_gi, model_HA, model_HB, model_OIII]))
+
+    figure_overlap = corner.corner(model_sample, 
+                                   fig = figure,
+                                   labels=[r'$u-g\ [\mathrm{mag}]$',
+                                         r'$g-r\ [\mathrm{mag}]$',
+                                         r'$u-r\ [\mathrm{mag}]$', 
+                                         r'$g-i\ [\mathrm{mag}]$',
+                                         r'$\log\ \mathrm{EW(H}\alpha)\ \AA$',
+                                         r'$\log\ \mathrm{EW(H}\beta)\ \AA$',
+                                         r'$\log\ \mathrm{EW([OIII])}\ \AA$'],
+                                   range = [(0,1.75),(-0.1,0.8),(0,2.5),(-0.2,1.2),(0,3),(-0.5,2.5),(-1,3)],
+                           bins=40, color=ORG(0.7),
+                           smooth=2, 
+                           label_kwargs={'fontsize': 16},
+                           quantiles=[0.16, 0.5, 0.84],
+                           levels=[0.16, 0.50, 0.84],
+                           plot_contours=True,
+                           fill_contours=True,
+                           show_titles=True,
+                           title_kwargs={"fontsize": 20},
+                           hist_kwargs={"histtype": 'stepfilled', "alpha": 0.5,
+                                         "edgecolor": "none"},
+                           use_math_text=True)
+
+
+
+    return figure_overlap
+
+
+
+def data_to_distribution(data, bin_size):
+    
+    data_hist = np.histogram(data, bins = bin_size)[0]
+
+    data_hist_norm = np.array([float(i+1e-4)/sum(data_hist) for i in data_hist])
+
+    return data_hist_norm
+
+def entropy(obs, model):
+    
+    x = torch.tensor([obs])
+    y = torch.tensor([model])
+    
+    criterion = nn.KLDivLoss()
+    loss = criterion(x.log(),y)   
+    
+    return loss.item()
