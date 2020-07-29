@@ -97,9 +97,9 @@ from hyperopt import hp, fmin, rand, tpe, space_eval
 space = [hp.choice('tau_mean', [1.6, 2.6, 3.6, 4.6, 5.6]),
          hp.choice('const_mean', [0.1, 0.2, 0.3, 0.4, 0.5]),
          hp.choice('tage_mean', [2.5, 4.5, 6.5, 8.5, 10.5]),
-         hp.choice('fburst_mean', [0.2, 0.4, 0.5, 0.6, 0.7]),
+         hp.choice('fburst_mean', [0.2, 0.3 ,0.4, 0.5, 0.6, 0.7, 0.8]),
          hp.choice('tburst_mean', [3.0, 4.0, 5.0, 6.0, 7.0]),
-         hp.choice('logzsol_mean', [-0.8, -0.6, -0.4, -0.2, 0.0]),
+         hp.choice('logzsol_mean', [-0.8, -0.6, -0.4, -0.2, 0.0, 0.1]),
          hp.choice('gas_logz_mean', [-0.9, -0.7, -0.5, -0.3, -0.1]),
          hp.choice('gas_logu_mean', [-3.7, -3.2, -2.7, -2.2, -1.2]),
         ]
@@ -198,7 +198,7 @@ def loss_function(args):
     sdss_bands = fsps.find_filter('SDSS')
     
     dwarf_sample_gaussian = generate_dwarf_population(
-        spop_tau, dwarf_sample_parameters, filters=sdss_bands, n_jobs=4)
+        spop_tau, dwarf_sample_parameters, filters=sdss_bands, n_jobs=3)
 
 
     # Measure colors and emission line EWs
@@ -223,17 +223,17 @@ def loss_function(args):
     obs_ug = data_to_distribution(np.asarray(sdss_use['M_u'] - sdss_use['M_g']), ug_size)
     obs_gr = data_to_distribution(np.asarray(sdss_use['M_g'] - sdss_use['M_r']), gr_size)
     obs_gi = data_to_distribution(np.asarray(sdss_use['M_g'] - sdss_use['M_i']), gi_size)
-    obs_ha = data_to_distribution(np.log10(-1.0*sdss_use['H_ALPHA_EQW']), ha_size)
-    obs_hb = data_to_distribution(np.log10(-1.0*sdss_use['H_BETA_EQW']), hb_size)
+    obs_ha = data_to_distribution(np.log10(-1.0 * sdss_use['H_ALPHA_EQW']), ha_size)
+    obs_hb = data_to_distribution(np.log10(-1.0 * sdss_use['H_BETA_EQW']), hb_size)
     obs_oiii = data_to_distribution(np.log10(-1.0 * (sdss_use['OIII_5007_EQW'])), oiii_size)
 
     model_ur = data_to_distribution(dwarf_sample_table['ur_color'], ur_size)
     model_ug = data_to_distribution(dwarf_sample_table['ug_color'], ug_size)
     model_gr = data_to_distribution(dwarf_sample_table['gr_color'], gr_size)
     model_gi = data_to_distribution(dwarf_sample_table['gi_color'], gi_size)
-    model_ha = data_to_distribution(np.log10(np.log10(dwarf_sample_table['ew_halpha'])), ha_size)
-    model_hb = data_to_distribution(np.log10(dwarf_sample_table['ew_hbeta']), hb_size)
-    model_oiii = data_to_distribution(np.log10(dwarf_sample_table['ew_oiii_5007']), oiii_size)
+    model_ha = data_to_distribution(np.log10(abs(dwarf_sample_table['ew_halpha']), ha_size))
+    model_hb = data_to_distribution(np.log10(abs(dwarf_sample_table['ew_hbeta']), hb_size))
+    model_oiii = data_to_distribution(np.log10(abs(dwarf_sample_table['ew_oiii_5007']), oiii_size))
 
     obs_stack = np.transpose(np.vstack([obs_ur, obs_ug, obs_gr, 
                                         obs_gi, obs_ha, obs_hb, 
@@ -271,7 +271,7 @@ def q(args):
     x,y = args
     return x**2+y**2
 
-best_test = fmin(q,space_test, algo = rand.suggest, max_evals = 100)
+best_test = fmin(q,space_test, algo = rand.suggest, max_evals = 300)
 print(space_eval(space_test, best_test))
 
 '''

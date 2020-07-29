@@ -94,14 +94,14 @@ SDSS_EMLINES = {    'OII_3726': {'cen':3726.032, 'low':3717.0, 'upp':3737.0},   
 
 from hyperopt import hp, fmin, rand, tpe, space_eval
 
-space = [hp.choice('tau_sig', [0.1, 0.2, 0.3, 0.4, 0.5]),
-         hp.choice('const_sig', [0.1, 0.2, 0.3,0.5]),
-         hp.choice('tage_sig', [0.1, 0.3, 0.3,0.5]),
-         hp.choice('fburst_sig', [0.1, 0.2, 0.3,0.5]),
-         hp.choice('tburst_sig', [0.1, 0.2, 0.3, 0.4, 0.5, 0.7]),
-         hp.choice('logzsol_sig', [0.1, 0.2, 0.3, 0.4, 0.5, 0.7]),
-         hp.choice('gas_logz_sig', [0.1, 0.2, 0.3, 0.4, 0.5, 0.7]),
-         hp.choice('gas_logu_sig', [0.1, 0.2, 0.3, 0.4, 0.5, 0.7]), 
+space = [hp.choice('tau_sig', [0.3, 0.5, 0.7, 0.9, 1.1]),
+         hp.choice('const_sig', [0.1, 0.2, 0.3,0.5, 0.7]),
+         hp.choice('tage_sig', [0.1, 0.3, 0.5,0.7, 0.9]),
+         hp.choice('fburst_sig', [0.1, 0.2, 0.3, 0.4, 0.5]),
+         hp.choice('tburst_sig', [0.3, 0.5, 0.7, 0.9, 1.1]),
+         hp.choice('logzsol_sig', [0.3, 0.5, 0.6, 0.7, 0.9]),
+         hp.choice('gas_logz_sig', [0.3, 0.5, 0.6, 0.7, 0.9]),
+         hp.choice('gas_logu_sig', [0.3, 0.5, 0.6, 0.7, 0.9]), 
         ]
 
 
@@ -121,7 +121,7 @@ def loss_function(args):
     tau_arr = [float(priors.ClippedNormal(mean=2.6, sigma=tau_sig, 
                                           mini=1.0, maxi=8.0).sample()) for _ in range(set_size)]
     const_arr =  [float(priors.ClippedNormal(mean=0.3, sigma=const_sig, 
-                                             mini=0.0, maxi=0.5).sample()) for _ in range(set_size)]
+                                             mini=0.0, maxi=0.8).sample()) for _ in range(set_size)]
     tage_arr =  [float(priors.ClippedNormal(mean=6.5, sigma=tage_sig, 
                                             mini=1.0, maxi=11.0).sample()) for _ in range(set_size)]
     fburst_arr =  [float(priors.ClippedNormal(mean=0.6, sigma=fburst_sig, 
@@ -181,7 +181,7 @@ def loss_function(args):
     sdss_bands = fsps.find_filter('SDSS')
     
     dwarf_sample_gaussian = generate_dwarf_population(
-        spop_tau, dwarf_sample_parameters, filters=sdss_bands, n_jobs=4)
+        spop_tau, dwarf_sample_parameters, filters=sdss_bands, n_jobs=6)
 
 
     # Measure colors and emission line EWs
@@ -214,7 +214,7 @@ def loss_function(args):
     model_ug = data_to_distribution(dwarf_sample_table['ug_color'], ug_size)
     model_gr = data_to_distribution(dwarf_sample_table['gr_color'], gr_size)
     model_gi = data_to_distribution(dwarf_sample_table['gi_color'], gi_size)
-    model_ha = data_to_distribution(np.log10(np.log10(dwarf_sample_table['ew_halpha'])), ha_size)
+    model_ha = data_to_distribution(np.log10(dwarf_sample_table['ew_halpha']), ha_size)
     model_hb = data_to_distribution(np.log10(dwarf_sample_table['ew_hbeta']), hb_size)
     model_oiii = data_to_distribution(np.log10(dwarf_sample_table['ew_oiii_5007']), oiii_size)
 
@@ -237,7 +237,7 @@ def loss_function(args):
 # In[ ]:
 
 
-best = fmin(loss_function, space, algo=tpe.suggest, max_evals = 100)
+best = fmin(loss_function, space, algo=tpe.suggest, max_evals = 300)
 
 print(space_eval(space, best))
 

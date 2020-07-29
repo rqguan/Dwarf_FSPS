@@ -862,39 +862,43 @@ def corner_plot(models, sdss_data):
 
 
 
-    model_ug = np.array(models['ug_color'])
-    model_gr = np.array(models['gr_color'])
-    model_ur = np.array(models['ur_color'])
-    model_gi = np.array(models['gi_color'])
-    model_HA = np.array(np.log10(models['ew_halpha']))
-    model_HB = np.array(np.log10(models['ew_hbeta']))
-    model_OIII = np.array(np.log10(models['ew_oiii_5007']))
+    sps_ug = np.array(models['ug_color'])
+    sps_gr = np.array(models['gr_color'])
+    sps_ur = np.array(models['ur_color'])
+    sps_gi = np.array(models['gi_color'])
+    sps_HA = np.array(abs(np.log10(models['ew_halpha'])))
+    sps_HB = np.array(abs(np.log10(models['ew_hbeta'])))
+    sps_OIII = np.array(abs(np.log(abs(models['ew_oiii_5007']))))
 
 
-    model_sample = np.transpose(np.vstack([model_ug, model_gr, model_ur, model_gi, model_HA, model_HB, model_OIII]))
+    sps_sample = np.transpose(np.vstack([sps_ug, sps_gr, sps_ur, sps_gi, 
+                                        sps_HA, sps_HB, sps_OIII]))
 
-    figure_overlap = corner.corner(model_sample, 
-                                   fig = figure,
-                                   labels=[r'$u-g\ [\mathrm{mag}]$',
-                                         r'$g-r\ [\mathrm{mag}]$',
-                                         r'$u-r\ [\mathrm{mag}]$', 
-                                         r'$g-i\ [\mathrm{mag}]$',
-                                         r'$\log\ \mathrm{EW(H}\alpha)\ \AA$',
-                                         r'$\log\ \mathrm{EW(H}\beta)\ \AA$',
-                                         r'$\log\ \mathrm{EW([OIII])}\ \AA$'],
-                                   range = [(0,1.75),(-0.1,0.8),(0,2.5),(-0.2,1.2),(0,3),(-0.5,2.5),(-1,3)],
-                           bins=40, color=ORG(0.7),
-                           smooth=2, 
-                           label_kwargs={'fontsize': 16},
-                           quantiles=[0.16, 0.5, 0.84],
-                           levels=[0.16, 0.50, 0.84],
-                           plot_contours=True,
-                           fill_contours=True,
-                           show_titles=True,
-                           title_kwargs={"fontsize": 20},
-                           hist_kwargs={"histtype": 'stepfilled', "alpha": 0.5,
-                                         "edgecolor": "none"},
-                           use_math_text=True)
+    figure_overlap = corner.corner(sps_sample, 
+                                fig = figure,
+                                labels=[r'$u-g\ [\mathrm{mag}]$',
+                                        r'$g-r\ [\mathrm{mag}]$',
+                                        r'$u-r\ [\mathrm{mag}]$', 
+                                        r'$g-i\ [\mathrm{mag}]$',
+                                        r'$\log\ \mathrm{EW(H}\alpha)\ \AA$',
+                                        r'$\log\ \mathrm{EW(H}\beta)\ \AA$',
+                                        r'$\log\ \mathrm{EW([OIII])}\ \AA$'],
+                                range = [(0,1.75),(-0.1,0.8),(0,2.5),(-0.2,1.2),(0,3),(-0.5,2.5),(-1,3)],
+                        bins=40, color=ORG(0.7),
+                        smooth=2, 
+                        label_kwargs={'fontsize': 16},
+                        quantiles=[0.16, 0.5, 0.84],
+                        levels=[0.16, 0.50, 0.84],
+                        plot_contours=True,
+                        fill_contours=True,
+                        show_titles=True,
+                        title_kwargs={"fontsize": 20},
+                        hist_kwargs={"histtype": 'stepfilled', "alpha": 0.5,
+                                        "edgecolor": "none"},
+                        use_math_text=True)
+
+
+    figure_overlap
 
 
 
