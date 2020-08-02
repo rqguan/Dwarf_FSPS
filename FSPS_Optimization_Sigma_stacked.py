@@ -73,16 +73,18 @@ rcParams.update({'font.size': 22})
 # In[9]:
 
 
-def loss(true_set, predict_set, bins_range):
+def data_to_distribution(data, bin_size):
     
-    sdss_hist = np.histogram(true_set, bins = bins_range)[0]
-    sps_hist = np.histogram(predict_set, bins = bins_range)[0]
+    data_hist = np.histogram(data, bins = bin_size)[0]
+
+    data_hist_norm = np.array([float(i+1e-4)/sum(data_hist) for i in data_hist])
+
+    return data_hist_norm
+
+def entropy(obs, model):
     
-    sdss_hist_norm = [float(i+1e-4)/sum(sdss_hist) for i in sdss_hist]
-    sps_hist_norm = [float(i+1e-4)/sum(sps_hist) for i in sps_hist]
-    
-    x = torch.tensor([sdss_hist_norm])
-    y = torch.tensor([sps_hist_norm])
+    x = torch.tensor([obs])
+    y = torch.tensor([model])
     
     criterion = nn.KLDivLoss()
     loss = criterion(x.log(),y)   
@@ -195,7 +197,7 @@ def loss_function(args):
     sdss_bands = fsps.find_filter('SDSS')
     
     dwarf_sample_gaussian = generate_dwarf_population(
-        spop_tau, dwarf_sample_parameters, filters=sdss_bands, n_jobs=1)
+        spop_tau, dwarf_sample_parameters, filters=sdss_bands, n_jobs=4)
 
 
     # Measure colors and emission line EWs
@@ -207,28 +209,47 @@ def loss_function(args):
 
     bin_size = 200
 
-    ur_loss = loss(dwarf_sample_table['ur_color'], np.asarray(sdss_use['M_u'] - sdss_use['M_r']), np.linspace(0.0, 2.5,bin_size))
-    ug_loss = loss(dwarf_sample_table['ug_color'], np.asarray(sdss_use['M_u'] - sdss_use['M_g']), np.linspace(0.0, 1.75,bin_size))
-    gr_loss = loss(dwarf_sample_table['gr_color'], np.asarray(sdss_use['M_g'] - sdss_use['M_r']), np.linspace(-0.1,0.8,bin_size))
-    gi_loss = loss(dwarf_sample_table['gi_color'], np.asarray(sdss_use['M_g'] - sdss_use['M_i']), np.linspace(-0.2,1.2,bin_size))
-    
-    OIII_loss = loss(np.log10(abs(dwarf_sample_table['ew_oiii_5007'])),
-                     np.log10(abs(sdss_use['OIII_5007_EQW'])), np.linspace(-1.0, 3.0 , bin_size))
-    
-    Ha_loss = loss(np.log10(abs(dwarf_sample_table['ew_halpha'])),
-                   np.log10(abs(sdss_use['H_ALPHA_EQW'])), np.linspace(0.0, 3.0, bin_size))
-    
-    Hb_loss = loss(np.log10(abs(dwarf_sample_table['ew_hbeta'])),
-                   np.log10(abs(sdss_use['H_BETA_EQW'])), np.linspace(-0.5, 3.0, bin_size))
+    ur_size = np.linspace( 0.0, 2.5, bin_size)
+    ug_size = np.linspace( 0.0, 2.0, bin_size)
+    gr_size = np.linspace(-0.1, 0.8, bin_size)
+    gi_size = np.linspace(-0.2, 1.3, bin_size)
+    ha_size = np.linspace( 0.0, 3.0, bin_size)
+    hb_size = np.linspace(-0.5, 2.5, bin_size)
+    oiii_size = np.linspace(-1.0, 3.0, bin_size)
 
-    total_loss = ur_loss + ug_loss + gr_loss + gi_loss + OIII_loss + Ha_loss + Hb_loss
+    obs_ur = data_to_distribution(np.asarray(sdss_use['M_u'] - sdss_use['M_r']), ur_size)
+    obs_ug = data_to_distribution(np.asarray(sdss_use['M_u'] - sdss_use['M_g']), ug_size)
+    obs_gr = data_to_distribution(np.asarray(sdss_use['M_g'] - sdss_use['M_r']), gr_size)
+    obs_gi = data_to_distribution(np.asarray(sdss_use['M_g'] - sdss_use['M_i']), gi_size)
+    obs_ha = data_to_distribution(np.log10(abs(sdss_use['H_ALPHA_EQW'])), ha_size)
+    obs_hb = data_to_distribution(np.log10(abs(sdss_use['H_BETA_EQW'])), hb_size)
+    obs_oiii = data_to_distribution(np.log10(abs(sdss_use['OIII_5007_EQW'])), oiii_size)
 
-    #part_loss = [ur_loss, ug_loss, gr_loss, gi_loss, OIII_loss, Ha_loss, Hb_loss]
+    model_ur = data_to_distribution(dwarf_sample_table['ur_color'], ur_size)
+    model_ug = data_to_distribution(dwarf_sample_table['ug_color'], ug_size)
+    model_gr = data_to_distribution(dwarf_sample_table['gr_color'], gr_size)
+    model_gi = data_to_distribution(dwarf_sample_table['gi_color'], gi_size)
+    model_ha = data_to_distribution(np.log10(abs(dwarf_sample_table['ew_halpha'])), ha_size)
+    model_hb = data_to_distribution(np.log10(abs(dwarf_sample_table['ew_hbeta'])), hb_size)
+    model_oiii = data_to_distribution(np.log10(abs(dwarf_sample_table['ew_oiii_5007'])), oiii_size)
+
+    obs_stack = np.transpose(np.vstack([obs_ur, obs_ug, obs_gr, 
+                                        obs_gi, obs_ha, obs_hb, 
+                                        obs_oiii]))
+
+    model_stack = np.transpose(np.vstack([model_ur, model_ug, model_gr, 
+                                        model_gi, model_ha, model_hb, 
+                                        model_oiii]))
+
+
+
+
+    total_loss = entropy(obs = obs_stack, model = model_stack)
 
     return total_loss
 
 
-# In[11]:
+# In[ ]:
 
 
 best = fmin(loss_function, space, algo=tpe.suggest, max_evals = 300)

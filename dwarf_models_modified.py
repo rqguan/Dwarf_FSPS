@@ -25,6 +25,9 @@ import astropy.units as u
 from astropy.table import Table, Column
 from astropy.io import fits
 
+import torch 
+import torch.nn as nn
+
 from specutils import Spectrum1D
 from specutils import SpectralRegion
 from specutils.analysis import equivalent_width
@@ -33,6 +36,7 @@ from specutils.analysis import equivalent_width
 import matplotlib.pyplot as plt
 from matplotlib import rc
 from matplotlib import rcParams
+import corner
 
 plt.rc('text', usetex=True)
 rcParams.update({'xtick.major.pad': '7.0'})
@@ -49,6 +53,10 @@ rcParams.update({'ytick.minor.size': '3.5'})
 rcParams.update({'ytick.minor.width': '1.0'})
 rcParams.update({'axes.titlepad': '15.0'})
 rcParams.update({'font.size': 26})
+
+ORG = plt.get_cmap('OrRd')
+ORG_2 = plt.get_cmap('YlOrRd')
+BLU = plt.get_cmap('PuBu')
 
 
 __all__ = ['get_sdss_spectrum', 'normalize_spectrum_window',
@@ -113,6 +121,8 @@ def get_sdss_spectrum(plate, mjd, fiberid, rest_frame=True, ebv=None):
             flux = flux / (1.0 + redshift)
         else:
             print("# No useful redshift !")
+
+    sdss_fits.close()
 
     return wave, flux, sdss_ews
 
@@ -459,7 +469,7 @@ def test_single_model(model, spop, sdss_data, wave_min=3700, wave_max=7400,
     ax4 = fig.add_subplot(gs[2, 0])
 
     _ = ax4.hist2d(
-        sdss_use['M_u'] - sdss_use['M_r'], np.log10(-1.0 * (sdss_use['OIII_5007_EQW'])),
+        sdss_data['M_u'] - sdss_data['M_r'], np.log10(-1.0 * (sdss_data['OIII_5007_EQW'])),
         range=[[0.05, 2.49], [-0.9, 2.9]], bins=[40, 35], cmap='viridis', cmin=5, alpha=0.8)
 
     ax4.scatter(model['ur_color'], np.log10(model['ew_oiii_5007']),
@@ -475,7 +485,7 @@ def test_single_model(model, spop, sdss_data, wave_min=3700, wave_max=7400,
     ax5 = fig.add_subplot(gs[2, 1])
 
     _ = ax5.hist2d(
-        sdss_use['M_g'] - sdss_use['M_i'], np.log10(-1.0 * (sdss_use['H_BETA_EQW'])),
+        sdss_data['M_g'] - sdss_data['M_i'], np.log10(-1.0 * (sdss_data['H_BETA_EQW'])),
         range=[[-0.05, 0.99], [0.01, 1.9]], bins=[40, 35], cmap='viridis', cmin=5, alpha=0.8)
 
     ax5.scatter(model['gi_color'], np.log10(model['ew_hbeta']),
@@ -618,17 +628,14 @@ def generate_dwarf_population(spop, model_grid, filters=None, n_jobs=8, output=N
     """Generate a population of dwarf spectra using pre-designed model grid."""
     if n_jobs > 1:
         print("# Will use multi-processing with %d cores!" % n_jobs)
-        from multiprocessing import Pool
-        from functools import partial
 
-        simulate_dwarf_pool = partial(
-            simulate_dwarf_sed, spop=spop, filters=filters)
-
-        pool = Pool(n_jobs)
-
-        models = pool.map(simulate_dwarf_pool, model_grid)
+        import ray
         
-        pool.close() 
+        ray.init(num_cpus = n_jobs)
+
+        models = ray.get([simulate_dwarf_sed(model, spop=spop, filters=filters) for model in model_grid])
+
+        
     else:
         models = [simulate_dwarf_sed(model, spop=spop, filters=filters) for model in model_grid]
 
@@ -676,7 +683,7 @@ def measure_color_ew(models, em_list=SDSS_EMLINES, output=None):
 
     if output is not None:
         # Save it as numpy array
-        np.save(output, model_table.as_array())
+        np.save(output, model_table.as_array()) 
 
     return model_table
 
@@ -787,7 +794,6 @@ def plot_models_with_sdss(models, sdss_data, wave_min=3720, wave_max=7225,
 
     return fig
 
-
 def _sigmoid(x):
     return 1. / (1. + np.exp(-x))
 
@@ -820,3 +826,101 @@ def filters_to_sedpy_format(name, wave, response):
     for w, r in zip(wave, response):
         par.write("KFILTER %9.3f %10.6f\n" % (w, r))
     par.close()
+
+
+def corner_plot(models, sdss_data):
+
+    sdss_ug = np.array(sdss_data['M_u'] - sdss_data['M_g'])
+    sdss_gr = np.array(sdss_data['M_g'] - sdss_data['M_r'])
+    sdss_ur = np.array(sdss_data['M_u'] - sdss_data['M_r'])
+    sdss_gi = np.array(sdss_data['M_g'] - sdss_data['M_i'])
+    sdss_HA = np.array(np.log10(-1.0 * (sdss_data['H_ALPHA_EQW'])))
+    sdss_HB = np.array(np.log10(-1.0 * (sdss_data['H_BETA_EQW'])))
+    sdss_OIII =  np.array(np.log10(-1.0 * (sdss_data['OIII_5007_EQW'])))
+
+    data = np.transpose(np.vstack([sdss_ug, sdss_gr, sdss_ur, sdss_gi, sdss_HA, sdss_HB, sdss_OIII]))
+
+    figure = corner.corner(data, labels=[r'$u-g\ [\mathrm{mag}]$',
+                                         r'$g-r\ [\mathrm{mag}]$',
+                                         r'$u-r\ [\mathrm{mag}]$', 
+                                         r'$g-i\ [\mathrm{mag}]$',
+                                         r'$\log\ \mathrm{EW(H}\alpha)\ \AA$',
+                                         r'$\log\ \mathrm{EW(H}\beta)\ \AA$',
+                                         r'$\log\ \mathrm{EW([OIII])}\ \AA$'],
+                           range = [(0,1.75),(-0.1,0.8),(0,2.5),(-0.2,1.2),(0,3),(-0.5,2.5),(-1,3)],
+                           bins=40, color=BLU(0.7),
+                           smooth=2, 
+                           label_kwargs={'fontsize': 16},
+                           quantiles=[0.16, 0.5, 0.84],
+                           levels=[0.16, 0.50, 0.84],
+                           plot_contours=True,
+                           fill_contours=True,
+                           show_titles=True,
+                           title_kwargs={"fontsize": 20},
+                           hist_kwargs={"histtype": 'stepfilled', "alpha": 0.5,
+                                         "edgecolor": "none"},
+                           use_math_text=True)
+
+
+
+    sps_ug = np.array(models['ug_color'])
+    sps_gr = np.array(models['gr_color'])
+    sps_ur = np.array(models['ur_color'])
+    sps_gi = np.array(models['gi_color'])
+    sps_HA = np.array(abs(np.log10(models['ew_halpha'])))
+    sps_HB = np.array(abs(np.log10(models['ew_hbeta'])))
+    sps_OIII = np.array(abs(np.log(abs(models['ew_oiii_5007']))))
+
+
+    sps_sample = np.transpose(np.vstack([sps_ug, sps_gr, sps_ur, sps_gi, 
+                                        sps_HA, sps_HB, sps_OIII]))
+
+    figure_overlap = corner.corner(sps_sample, 
+                                fig = figure,
+                                labels=[r'$u-g\ [\mathrm{mag}]$',
+                                        r'$g-r\ [\mathrm{mag}]$',
+                                        r'$u-r\ [\mathrm{mag}]$', 
+                                        r'$g-i\ [\mathrm{mag}]$',
+                                        r'$\log\ \mathrm{EW(H}\alpha)\ \AA$',
+                                        r'$\log\ \mathrm{EW(H}\beta)\ \AA$',
+                                        r'$\log\ \mathrm{EW([OIII])}\ \AA$'],
+                                range = [(0,1.75),(-0.1,0.8),(0,2.5),(-0.2,1.2),(0,3),(-0.5,2.5),(-1,3)],
+                        bins=40, color=ORG(0.7),
+                        smooth=2, 
+                        label_kwargs={'fontsize': 16},
+                        quantiles=[0.16, 0.5, 0.84],
+                        levels=[0.16, 0.50, 0.84],
+                        plot_contours=True,
+                        fill_contours=True,
+                        show_titles=True,
+                        title_kwargs={"fontsize": 20},
+                        hist_kwargs={"histtype": 'stepfilled', "alpha": 0.5,
+                                        "edgecolor": "none"},
+                        use_math_text=True)
+
+
+    figure_overlap
+
+
+
+    return figure_overlap
+
+
+
+def data_to_distribution(data, bin_size):
+    
+    data_hist = np.histogram(data, bins = bin_size)[0]
+
+    data_hist_norm = np.array([float(i+1e-4)/sum(data_hist) for i in data_hist])
+
+    return data_hist_norm
+
+def entropy(obs, model):
+    
+    x = torch.tensor([obs])
+    y = torch.tensor([model])
+    
+    criterion = nn.KLDivLoss()
+    loss = criterion(x.log(),y)   
+    
+    return loss.item()
