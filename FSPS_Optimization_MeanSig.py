@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[8]:
 
 
 #get_ipython().run_line_magic('matplotlib', 'inline')
@@ -22,8 +22,6 @@ import pandas as pd
 import fsps
 import sedpy
 import lineid_plot
-import torch
-import torch.nn as nn 
 
 from sedpy.observate import getSED, vac2air, air2vac
 
@@ -47,6 +45,9 @@ from prospect import models
 from prospect.models import priors
 
 from scipy.stats import entropy
+
+import torch
+import torch.nn as nn
 
 # re-defining plotting defaults
 from matplotlib import rcParams
@@ -73,6 +74,24 @@ rcParams.update({'font.size': 22})
 
 # In[2]:
 
+def data_to_distribution(data, bin_size):
+    
+    data_hist = np.histogram(data, bins = bin_size)[0]
+
+    data_hist_norm = np.array([float(i+1e-4)/sum(data_hist) for i in data_hist])
+
+    return data_hist_norm
+
+def entropy(obs, model):
+    
+    x = torch.tensor([obs])
+    y = torch.tensor([model])
+    
+    criterion = nn.KLDivLoss()
+    loss = criterion(x.log(),y)   
+    
+    return loss.item()
+
 
 sdss_cat = Table.read('/Users/runquanguan/Documents/Dwarf_SDSS_8_9_SF_v2.0.fits')
 
@@ -90,22 +109,22 @@ SDSS_EMLINES = {    'OII_3726': {'cen':3726.032, 'low':3717.0, 'upp':3737.0},   
 
 from hyperopt import hp, fmin, rand, tpe, space_eval
 
-space = [hp.choice('tau_mean', [1.6, 2.6, 3.6, 4.6, 5.6]),
-         hp.choice('const_mean', [0.1, 0.2, 0.3, 0.4, 0.5]),
-         hp.choice('tage_mean', [2.5, 4.5, 6.5, 8.5, 10.5]),
-         hp.choice('fburst_mean', [0.4, 0.5, 0.6, 0.7, 0.8]),
-         hp.choice('tburst_mean', [3.0, 4.0, 5.0, 6.0, 7.0]),
-         hp.choice('logzsol_mean', [-1.2, -1, -0.8, -0.6, -0.4]),
-         hp.choice('gas_logz_mean', [-0.9, -0.7, -0.5, -0.3, -0.1]),
-         hp.choice('gas_logu_mean', [-3.7, -3.2, -2.7, -2.2, -1.2]),
-         hp.choice('tau_sig', [0.1, 0.2, 0.3, 0.4, 0.5]),
-         hp.choice('const_sig', [0.1, 0.2, 0.3]),
-         hp.choice('tage_sig', [0.1, 0.3, 0.]),
-         hp.choice('fburst_sig', [0.1, 0.2, 0.3]),
-         hp.choice('tburst_sig', [0.1, 0.2, 0.3, 0.4, 0.5]),
-         hp.choice('logzsol_sig', [0.1, 0.2, 0.3, 0.4, 0.5]),
-         hp.choice('gas_logz_sig', [0.1, 0.2, 0.3, 0.4, 0.5]),
-         hp.choice('gas_logu_sig', [0.1, 0.2, 0.3, 0.4, 0.5]), 
+space = [hp.normal('tau_mean', 2.6, 0.7),
+         hp.normal('const_mean', 0.3, 0.5),
+         hp.normal('tage_mean', 6.5, 2.0),
+         hp.normal('fburst_mean', 0.6, 0.1),
+         hp.normal('tburst_mean', 5.0, 0.5),
+         hp.normal('logzsol_mean', -0.8, 0.7),
+         hp.normal('gas_logz_mean', -0.5, 0.7),
+         hp.normal('gas_logu_mean', -3.2, 0.5),
+         hp.normal('tau_sig', 0.7, 0.2),
+         hp.normal('const_sig', 0.5, 0.1),
+         hp.normal('tage_sig', 2.0, 0.5),
+         hp.normal('fburst_sig', 0.1, 0.1),
+         hp.normal('tburst_sig', 0.5, 0.1),
+         hp.normal('logzsol_sig', 0.7, 0.2),
+         hp.normal('gas_logz_sig', 0.7, 0.2),
+         hp.normal('gas_logu_sig', 0.5, 0.1), 
         ]
 
 
@@ -143,21 +162,28 @@ def loss_function(args):
     
     set_size = 3000
 
-    tau_arr = [float(priors.ClippedNormal(mean=tau_mean, sigma=tau_sig, 
+    tau_arr = [float(priors.ClippedNormal(mean = abs(tau_mean), sigma=abs(tau_sig), 
                                           mini=1.0, maxi=8.0).sample()) for _ in range(set_size)]
-    const_arr =  [float(priors.ClippedNormal(mean=const_mean, sigma=const_sig, 
+    
+    const_arr =  [float(priors.ClippedNormal(mean = abs(const_mean), sigma=abs(const_sig), 
                                              mini=0.0, maxi=0.5).sample()) for _ in range(set_size)]
-    tage_arr =  [float(priors.ClippedNormal(mean=tage_mean, sigma=tage_sig, 
+    
+    tage_arr =  [float(priors.ClippedNormal(mean = abs(tage_mean), sigma=abs(tage_sig), 
                                             mini=1.0, maxi=11.0).sample()) for _ in range(set_size)]
-    fburst_arr =  [float(priors.ClippedNormal(mean=fburst_mean, sigma=fburst_sig, 
+    
+    fburst_arr =  [float(priors.ClippedNormal(mean = abs(fburst_mean), sigma=abs(fburst_sig), 
                                               mini=0.0, maxi=0.8).sample()) for _ in range(set_size)]
-    tburst_arr =  [float(priors.ClippedNormal(mean=tburst_mean, sigma=tburst_sig, 
+    
+    tburst_arr =  [float(priors.ClippedNormal(mean = abs(tburst_mean), sigma=abs(tburst_sig), 
                                               mini=0.0, maxi=8.0).sample()) for _ in range(set_size)]
-    logzsol_arr =  [float(priors.ClippedNormal(mean=logzsol_mean, sigma=logzsol_sig, 
+    
+    logzsol_arr =  [float(priors.ClippedNormal(mean = -1 * abs(logzsol_mean), sigma=abs(logzsol_sig), 
                                                mini=-1.5, maxi=0.0).sample()) for _ in range(set_size)]
-    gas_logz_arr =  [float(priors.ClippedNormal(mean=gas_logz_mean, sigma=gas_logz_sig, 
+    
+    gas_logz_arr =  [float(priors.ClippedNormal(mean = -1 * abs(gas_logz_mean), sigma=abs(gas_logz_sig), 
                                                 mini=-1.5, maxi=0.0).sample()) for _ in range(set_size)]
-    gas_logu_arr =  [float(priors.ClippedNormal(mean=gas_logu_mean, sigma=gas_logu_sig, 
+    
+    gas_logu_arr =  [float(priors.ClippedNormal(mean = -1 * (gas_logu_mean), sigma=abs(gas_logu_sig), 
                                                 mini=-4.0, maxi=-1.0).sample()) for _ in range(set_size)]
                  
     # Fix the fburst + const > 1 issue
@@ -218,26 +244,51 @@ def loss_function(args):
 
     bin_size = 200
 
-    ur_loss = loss(dwarf_sample_table['ur_color'],np.asarray(sdss_use['M_u'] - sdss_use['M_r']), np.linspace(0,2.5,bin_size))
-    ug_loss = loss(dwarf_sample_table['ug_color'], np.asarray(sdss_use['M_u'] - sdss_use['M_g']), np.linspace(0,1.75,bin_size))
-    gr_loss = loss(dwarf_sample_table['gr_color'], np.asarray(sdss_use['M_g'] - sdss_use['M_r']), np.linspace(-0.1,0.8,bin_size))
-    gi_loss = loss(dwarf_sample_table['gi_color'], np.asarray(sdss_use['M_g'] - sdss_use['M_i']), np.linspace(-0.2,1.2,bin_size))
-    OIII_loss = loss(np.log10(dwarf_sample_table['ew_oiii_5007']),
-                     np.log10(-1.0 * (sdss_use['OIII_5007_EQW'])), np.linspace(-1,3,bin_size))
-    Ha_loss = loss(np.log10(np.log10(dwarf_sample_table['ew_halpha'])),
-                  np.log10(-1.0*sdss_use['H_ALPHA_EQW']), np.linspace(0,3,bin_size))
-    Hb_loss = loss(np.log10(dwarf_sample_table['ew_hbeta']),
-                  np.log10(-1.0*sdss_use['H_BETA_EQW']), np.linspace(-0.5,2.5,bin_size))
+    ur_size = np.linspace( 0.0, 2.5, bin_size)
+    ug_size = np.linspace( 0.0, 2.0, bin_size)
+    gr_size = np.linspace(-0.1, 0.8, bin_size)
+    gi_size = np.linspace(-0.2, 1.3, bin_size)
+    ha_size = np.linspace( 0.0, 3.0, bin_size)
+    hb_size = np.linspace(-0.5, 2.5, bin_size)
+    oiii_size = np.linspace(-1.0, 3.0, bin_size)
 
-    total_loss = (ur_loss + ug_loss + gr_loss + gi_loss + OIII_loss + Ha_loss + Hb_loss)/7
+    obs_ur = data_to_distribution(np.asarray(sdss_use['M_u'] - sdss_use['M_r']), ur_size)
+    obs_ug = data_to_distribution(np.asarray(sdss_use['M_u'] - sdss_use['M_g']), ug_size)
+    obs_gr = data_to_distribution(np.asarray(sdss_use['M_g'] - sdss_use['M_r']), gr_size)
+    obs_gi = data_to_distribution(np.asarray(sdss_use['M_g'] - sdss_use['M_i']), gi_size)
+    obs_ha = data_to_distribution(np.log10(abs(sdss_use['H_ALPHA_EQW'])), ha_size)
+    obs_hb = data_to_distribution(np.log10(abs(sdss_use['H_BETA_EQW'])), hb_size)
+    obs_oiii = data_to_distribution(np.log10(abs(sdss_use['OIII_5007_EQW'])), oiii_size)
+
+    model_ur = data_to_distribution(dwarf_sample_table['ur_color'], ur_size)
+    model_ug = data_to_distribution(dwarf_sample_table['ug_color'], ug_size)
+    model_gr = data_to_distribution(dwarf_sample_table['gr_color'], gr_size)
+    model_gi = data_to_distribution(dwarf_sample_table['gi_color'], gi_size)
+    model_ha = data_to_distribution(np.log10(abs(dwarf_sample_table['ew_halpha'])), ha_size)
+    model_hb = data_to_distribution(np.log10(abs(dwarf_sample_table['ew_hbeta'])), hb_size)
+    model_oiii = data_to_distribution(np.log10(abs(dwarf_sample_table['ew_oiii_5007'])), oiii_size)
+
+    obs_stack = np.transpose(np.vstack([obs_ur, obs_ug, obs_gr, 
+                                        obs_gi, obs_ha, obs_hb, 
+                                        obs_oiii]))
+
+    model_stack = np.transpose(np.vstack([model_ur, model_ug, model_gr, 
+                                        model_gi, model_ha, model_hb, 
+                                        model_oiii]))
+
+
+
+
+    total_loss = entropy(obs = obs_stack, model = model_stack)
 
     return total_loss
+
 
 
 # In[6]:
 
 
-best = fmin(loss_function, space, algo=tpe.suggest, max_evals = 100)
+best = fmin(loss_function, space, algo=tpe.suggest, max_evals = 1000)
 
 print(space_eval(space, best))
 
