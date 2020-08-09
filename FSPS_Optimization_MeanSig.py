@@ -109,14 +109,15 @@ SDSS_EMLINES = {    'OII_3726': {'cen':3726.032, 'low':3717.0, 'upp':3737.0},   
 
 from hyperopt import hp, fmin, rand, tpe, space_eval
 
-space = [hp.normal('tau_mean', 2.6, 0.7),
-         hp.normal('const_mean', 0.3, 0.5),
+space = [hp.normal('tau_mean', 2.6, 0.3),
+         hp.normal('const_mean', 0.3, 0.1),
          hp.normal('tage_mean', 6.5, 2.0),
          hp.normal('fburst_mean', 0.6, 0.1),
          hp.normal('tburst_mean', 5.0, 0.5),
-         hp.normal('logzsol_mean', -0.8, 0.7),
-         hp.normal('gas_logz_mean', -0.5, 0.7),
-         hp.normal('gas_logu_mean', -3.2, 0.5),
+         hp.normal('logzsol_mean', 0.8, 0.5),
+         hp.normal('gas_logz_mean', 0.5, 0.5),
+         hp.normal('gas_logu_mean', 3.2, 0.5),
+
          hp.normal('tau_sig', 0.7, 0.2),
          hp.normal('const_sig', 0.5, 0.1),
          hp.normal('tage_sig', 2.0, 0.5),
@@ -130,12 +131,13 @@ space = [hp.normal('tau_mean', 2.6, 0.7),
 
 # In[4]:
 
-
+# compute KL divergence between two distributions
 def loss(true_set, predict_set, bins_range):
     
     sdss_hist = np.histogram(true_set, bins = bins_range)[0]
     sps_hist = np.histogram(predict_set, bins = bins_range)[0]
     
+    # get rid of divided by zero problem
     sdss_hist_norm = [float(i+1e-4)/sum(sdss_hist) for i in sdss_hist]
     sps_hist_norm = [float(i+1e-4)/sum(sps_hist) for i in sps_hist]
     
@@ -175,7 +177,7 @@ def loss_function(args):
                                               mini=0.0, maxi=0.8).sample()) for _ in range(set_size)]
     
     tburst_arr =  [float(priors.ClippedNormal(mean = abs(tburst_mean), sigma=abs(tburst_sig), 
-                                              mini=0.0, maxi=8.0).sample()) for _ in range(set_size)]
+                                              mini=0.0, maxi=abs(tage_mean) ).sample()) for _ in range(set_size)]
     
     logzsol_arr =  [float(priors.ClippedNormal(mean = -1 * abs(logzsol_mean), sigma=abs(logzsol_sig), 
                                                mini=-1.5, maxi=0.0).sample()) for _ in range(set_size)]
@@ -183,7 +185,7 @@ def loss_function(args):
     gas_logz_arr =  [float(priors.ClippedNormal(mean = -1 * abs(gas_logz_mean), sigma=abs(gas_logz_sig), 
                                                 mini=-1.5, maxi=0.0).sample()) for _ in range(set_size)]
     
-    gas_logu_arr =  [float(priors.ClippedNormal(mean = -1 * (gas_logu_mean), sigma=abs(gas_logu_sig), 
+    gas_logu_arr =  [float(priors.ClippedNormal(mean = -1 * abs(gas_logu_mean), sigma=abs(gas_logu_sig), 
                                                 mini=-4.0, maxi=-1.0).sample()) for _ in range(set_size)]
                  
     # Fix the fburst + const > 1 issue
