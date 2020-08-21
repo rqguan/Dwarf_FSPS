@@ -1,7 +1,7 @@
 # Dwarf_FSPS
 FSPS on dwarf for building narrow band filter
 
-All pipelines need to run under the same folder as dwarf_model.py
+All pipelines need to run under the same folder with dwarf_model.py
 
 FSPS_Setup.ipynb runs a single 5000 dwarf population
 
